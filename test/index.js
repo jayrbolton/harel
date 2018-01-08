@@ -53,3 +53,39 @@ test('it throws an error when transition on a valid event that is inaccessible',
   t.throws(() => Chart.event('LOOP', c1))
   t.end()
 })
+
+test.skip('nested charts', t => {
+  const parent = Chart.create({
+    states: ['s1', 'c1'],
+    events: { PUSH: ['s1', 'c1'] },
+    initial: {s1: true},
+    where: {
+      c1: {
+        initial: {a1: true},
+        states: ['a1', 'b1'],
+        events: {GO: ['a1', 'b1']}
+      }
+    }
+  })
+  const p2 = parent.event('PUSH')
+  t.deepEqual(p2.states, {c1: {a1: true}})
+  t.end()
+})
+
+test.skip('nested charts to a specific state, overriding initial', t => {
+  const parent = Chart.create({
+    states: ['s1', 'c1'],
+    events: { PUSH: ['s1', 'c1.b1'] },
+    initial: {s1: true},
+    where: {
+      c1: {
+        initial: {a1: true},
+        states: ['a1', 'b1'],
+        events: {GO: ['a1', 'b1']}
+      }
+    }
+  })
+  const p2 = parent.event('PUSH')
+  t.deepEqual(p2.states, {c1: {b1: true}})
+  t.end()
+})

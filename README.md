@@ -7,10 +7,10 @@ Harel statecharts are a declarative way to describe ui behavior. They're fun to 
 ## Usage
 
 ```js
-var statechart = require('harel')
+var Harel = require('harel')
 
 // A basic countdown timer UI
-var timerChart1 = statechart({
+var timerChart1 = Harel.create({
   states: ['running', 'paused', 'reset', 'finished'],
   events: {
     START: [['paused', 'running'], ['reset', 'running']],
@@ -24,7 +24,7 @@ var timerChart1 = statechart({
 var c2 = timerChart.event('START') // c2.states -> {running: true}
 var c3 = c2.event('PAUSE') // c3.states -> {paused: true}
 // alternative syntax:
-var c4 = statechart.event(RESET, c3) // c4.states -> {reset: true}
+var c4 = Harel.event('RESET', c3) // c4.states -> {reset: true}
 ```
 
 They support parallel states -- simply set multiple states to `true` in the `initial` property.
@@ -32,10 +32,10 @@ They support parallel states -- simply set multiple states to `true` in the `ini
 ## API
 
 ```js
-var statechart = require('harel')
+var Harel = require('harel')
 ```
 
-### statechart.create(options)
+### Harel.create(options)
 
 Create a new `chart` instance with some options. You can set these props in the options:
 
@@ -52,7 +52,7 @@ Returns a `chart` instance with these props:
 
 It will throw an error if a state is unreachable, if a state name is invalid, or if any state transition is ambiguous.
 
-### statechart.event(eventName, chart), chart.event(eventName)
+### Harel.event(eventName, chart), chart.event(eventName)
 
 Trigger a state transition using an event name. You can either call this as a method on a chart instance or as a function with a chart instance as the second argument.
 
