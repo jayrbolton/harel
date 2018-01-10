@@ -60,6 +60,30 @@ This returns a **new** chart instance with a new `.states` property.
 
 It will throw an error if the event is invalid.
 
+## Nested Charts
+
+One of the goals of this module is to have robust support for nested charts.
+
+WIP
+
+### Initializing a nested chart
+
+### Transitioning into a nested chart
+
+#### Transition into the initial state
+
+#### Transition into a specific state
+
+### Transitioning between nested charts
+
+### Transitioning within a nested chart
+
+### Exiting a nested chart
+
+### Looping on a nested chart
+
+### Transitioning between deeply nested charts
+
 ## Install
 
 With [npm](https://npmjs.org/) installed, run
@@ -70,12 +94,13 @@ $ npm install harel
 
 ## Acknowledgments
 
-Thanks to [davidnpiano](https://github.com/davidkpiano) for giving [a talk](https://www.youtube.com/watch?v=VU1NKX6Qkxc) about them.
+Thanks to [davidnpiano](https://github.com/davidkpiano) for giving [a talk](https://www.youtube.com/watch?v=VU1NKX6Qkxc) about state charts.
 
 ## See Also
 
-- [Original paper about them](http://www.inf.ed.ac.uk/teaching/courses/seoc/2005_2006/resources/statecharts.pdf)
+- [Original paper about statecharts](http://www.inf.ed.ac.uk/teaching/courses/seoc/2005_2006/resources/statecharts.pdf)
 - [xstate](https://github.com/davidkpiano/xstate/) -- a good alternate implementation
+- Book: [Constructing the User Interface with Statecharts by Ian Horrocks](https://www.amazon.com/Constructing-User-Interface-Statecharts-Horrocks/dp/0201342782)
 
 ## License
 
