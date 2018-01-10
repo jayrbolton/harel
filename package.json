@@ -6,7 +6,9 @@
   "directories": {
     "test": "test"
   },
-  "dependencies": {},
+  "dependencies": {
+    "flat": "4.0.0"
+  },
   "devDependencies": {
     "common-readme": "^1.1.0",
     "dependency-check": "^2.9.2",
