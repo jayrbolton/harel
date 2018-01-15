@@ -1,6 +1,6 @@
 var flattenObj = require('flat')
 
-function Harel (opts) {
+function create (opts) {
   if (!opts.states || !Array.isArray(opts.states)) {
     throw new TypeError('Pass in a .states array')
   }
@@ -14,7 +14,7 @@ function Harel (opts) {
     nested: {},
     eventPaths: {},
     accessibleStates: opts.accessibleStates,
-    states: opts.initial,
+    states: Object.assign({}, opts.initial),
     initial: opts.initial,
     flatStates: flattenObj(opts.initial),
     event: function (name) { return event(name, this) }
@@ -23,7 +23,7 @@ function Harel (opts) {
   // Initialize nested charts
   for (var chartName in opts.where) {
     opts.where[chartName].skipAccessibilityValidation = true
-    chart.nested[chartName] = Harel(opts.where[chartName])
+    chart.nested[chartName] = create(opts.where[chartName])
   }
 
   // `eventPaths` is an object like {EVENT_NAME: {sourceState: 'destinationState'}}
@@ -34,7 +34,9 @@ function Harel (opts) {
     for (var j = 0; j < pairs.length; ++j) {
       var source = pairs[j][0]
       var dest = pairs[j][1]
-      if (chart.eventPaths[eventName][source]) throw new Error('Ambiguous state transition event "' + eventName + '" from state "' + source + '"')
+      if (chart.eventPaths[eventName][source]) {
+        throw new Error('Ambiguous event "' + eventName + '" from state "' + source + '"')
+      }
       // Set nested chart states as accessible
       var destPath = dest.split('.')
       setAccessiblePath(destPath, chart)
@@ -55,7 +57,9 @@ function defaults (opts) {
   if (!('where' in opts)) opts.where = {}
   if (!('accessibleStates' in opts)) opts.accessibleStates = {}
   for (var i = 0; i < opts.states.length; ++i) {
-    opts.accessibleStates[opts.states[i]] = false
+    if (!(opts.states[i] in opts.accessibleStates)) {
+      opts.accessibleStates[opts.states[i]] = false
+    }
   }
   for (var nestedName in opts.where) {
     opts.where[nestedName] = defaults(opts.where[nestedName])
@@ -64,6 +68,9 @@ function defaults (opts) {
 }
 
 // If some initial states activate nested charts, then we need to transition those charts
+// For example, say the parent chart's initial state is {c1: true}
+// and c1 is a nested chart with initial state {a1: true}
+// then the parent initial state will get set to {c1: {a1: true}}
 function setInitialStates (initial, opts) {
   if (initial === true) return opts.initial
   for (var stateName in initial) {
@@ -102,93 +109,99 @@ function setAccessiblePath (path, chart) {
   }
 }
 
+// Fire a state transition event
+// Return a new chart with a possibly different state and set of nested charts
 function event (eventName, chart) {
-  var newChart = Object.assign({}, chart)
-  newChart.nested = Object.assign({}, chart.nested)
-  newChart.states = Object.assign({}, chart.states)
+  var newChart = cloneChart(chart)
+
   // Handle nested event transitions within a nested chart -- eg. "c1.EVENT"
   var eventScope = eventName.split('.')
   if (eventScope.length > 1) {
     var chartName = eventScope[0]
     var nested = chart.nested[chartName]
     if (!nested) {
-      throw new Error('Cannot find this nested chart: ' + eventScope[0])
+      throw new Error('Invalid nested event "' + eventName + '". Cannot find the nested chart called "' + eventScope[0] + '"')
     }
     if (!newChart.states[chartName]) {
-      throw new Error('Cannot transition in this inactive nested chart: ' + eventScope[0])
+      throw new Error('Invalid nested event "' + eventName + '". Cannot transition from an inactive nested chart called "' + eventScope[0] + '"')
     }
-    newChart.nested[chartName] = event(eventScope.slice(1).join('.'), nested)
+    var subEvent = eventScope.slice(1).join('.')
+    newChart.nested[chartName] = event(subEvent, nested)
     newChart.states[chartName] = newChart.nested[chartName].states
     newChart.flatStates = flattenObj(newChart.states)
     return newChart
   }
-  var sources = chart.eventPaths[eventName]
+
+  var paths = chart.eventPaths[eventName]
   var transitionCount = 0
-  for (var state in chart.flatStates) {
-    var statePath = state.split('.')
-    var dest = sources[state]
-    if (!dest && statePath.length > 1) {
-      dest = sources[statePath[0]]
+  for (var source in chart.flatStates) {
+    var destPath = paths[source]
+    var sourcePath = source.split('.')
+    // Handle transitions that come from the edge of a nested chart -- not from a specific nested state
+    // Eg. the state may be {'c1.a1': true}, but a valid path from there can be {c1: ['x']}
+    if (!destPath && sourcePath.length > 1) {
+      destPath = paths[sourcePath[0]]
     }
-    if (dest) {
-      transition(statePath, dest, newChart)
+    if (destPath) {
+      exit(sourcePath, newChart, eventName)
+      enter(destPath, newChart, eventName)
       transitionCount += 1
     }
   }
   if (transitionCount === 0) {
-    throw new Error('Invalid event "' + eventName + '" from state "' + JSON.stringify(state) + '"')
+    throw new Error('Invalid event "' + eventName + '" from state "' + JSON.stringify(chart.states) + '"')
   }
-  newChart.flatStates = flattenObj(newChart.states)
   return newChart
 }
 
-// TODO we don't want to mutate all these nested charts
-
-function transition (sourcePath, destPath, chart) {
-  // Unset the source
-  var prev
-  if (sourcePath) {
-    prev = chart.states[sourcePath[0]]
-    delete chart.states[sourcePath[0]]
+function exit (sourcePath, chart, eventName) {
+  var isActive = sourcePath[0] in chart.states
+  if (!isActive) {
+    throw new Error('Invalid event ' + eventName + ' -- trying to exit from inactive or missing state: ' + sourcePath[0] + '. Active states are: ' + JSON.stringify(chart.states))
   }
-  // Set the dest -- possibly recursive
+  chart._prev = chart.states
+  chart.states = Object.assign({}, chart.states)
+  delete chart.states[sourcePath[0]]
+  if (sourcePath.length > 1) {
+    var nested = chart.nested[sourcePath[0]]
+    exit(sourcePath.slice(1), nested, eventName)
+  }
+}
+
+function enter (destPath, chart, eventName) {
+  var isAccessible = destPath[0] in chart.accessibleStates
+  if (!isAccessible) {
+    throw new Error('Cannot transition into inaccessible state "' + destPath[0] + '" in event "' + eventName + '". Accessible states are: ' + Object.keys(chart.accessibleStates))
+  }
+  var isDeep = destPath.length > 1
   var nested = chart.nested[destPath[0]]
-  if (destPath.length === 1) {
-    if (nested) {
-      // Transition into nested *initial* state
-      var newNested = Object.assign({states: nested.initial, flatStates: flattenObj(nested.initial)}, nested)
-      chart.nested[destPath[0]] = newNested
-      chart.states[destPath[0]] = newNested.initial
-    } else {
-      // Transition into a normal state
-      if (!(destPath[0] in chart.accessibleStates)) {
-        throw new Error('Cannot transition into inaccessible state: ' + destPath[0])
-      }
-      chart.states[destPath[0]] = true
-    }
-  } else if (nested) { // gt 1 -- some kind of nested chart path
-    // Transition within the same nested chart
-    if (sourcePath && sourcePath[0] === destPath[0]) {
-      if (destPath[1] !== 'history') {
-        transition(sourcePath.slice(1), destPath.slice(1), nested)
-        chart.states[destPath[0]] = nested.states
-      } else {
-        chart.states[destPath[0]] = prev
-      }
-    } else {
-      if (destPath[1] !== 'history') {
-        // Transition into a specific state within a nested chart
-        transition(null, destPath.slice(1), nested)
-      }
-      chart.states[destPath[0]] = nested.states
-    }
+  if (destPath[0] === 'history') {
+    chart.states = chart._prev || Object.assign({}, chart.initial)
+  } else if (destPath[0] === 'initial') {
+    chart.states = Object.assign({}, chart.initial)
   } else {
-    throw new Error('Invalid transition')
+    chart.states[destPath[0]] = true
+  }
+
+  if (nested) {
+    if (!isDeep) {
+      throw new Error('To transition into a nested chart, specify "history", "initial", or a specific state in that nested chart. Failed on "' + destPath[0] + '" from event "' + eventName + '"')
+    }
+    var newNested = cloneChart(nested)
+    enter(destPath.slice(1), newNested, eventName)
+    chart.nested[destPath[0]] = newNested
+    chart.states[destPath[0]] = newNested.states
   }
   chart.flatStates = flattenObj(chart.states)
 }
 
-module.exports = {
-  create: Harel,
-  event: event
+// Clone a chart, shallow-cloning some of its properties
+function cloneChart (chart) {
+  return Object.assign({
+    states: Object.assign({}, chart.states),
+    flatStates: Object.assign({}, chart.flatStates),
+    nested: Object.assign({}, chart.nested)
+  }, chart)
 }
+
+module.exports = { create: create, event: event }

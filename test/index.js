@@ -67,7 +67,7 @@ test('it throws an error when transition on a valid event that is inaccessible',
 test('nested charts: transition to an initial state', t => {
   const p1 = Chart.create({
     states: ['s1', 'c1'],
-    events: { PUSH: ['s1', 'c1'] },
+    events: { PUSH: ['s1', 'c1.initial'] },
     initial: {s1: true},
     where: {
       c1: {
@@ -188,18 +188,16 @@ test("nested charts: initially setting a nested chart sets the nested chart's st
 test("nested charts: transition to a double-nested chart's initial state", t => {
   const parent = Chart.create({
     states: ['s1', 'c1'],
-    events: { PUSH: ['s1', 'c1.c2'] },
+    events: { PUSH: ['s1', 'c1.c2.initial'] },
     initial: {s1: true},
     where: {
       c1: {
         initial: {a1: true},
         states: ['a1', 'c2'],
-        events: {},
         where: {
           c2: {
             initial: {g1: true},
-            states: ['g1'],
-            events: {}
+            states: ['g1']
           }
         }
       }
@@ -236,7 +234,7 @@ test("nested charts: transition to a double-nested chart's specific state", t =>
 })
 
 test('nested charts: transition from a nested state to another nested state', t => {
-  const parent = Chart.create({
+  const p1 = Chart.create({
     states: ['c1', 'c2'],
     events: { TRANS: ['c1.a1', 'c2.a1'] },
     initial: {c1: {a1: true}},
@@ -253,7 +251,8 @@ test('nested charts: transition from a nested state to another nested state', t 
       }
     }
   })
-  const p2 = parent.event('TRANS')
+  t.deepEqual(p1.states, {c1: {a1: true}})
+  const p2 = p1.event('TRANS')
   t.deepEqual(p2.states, {c2: {a1: true}})
   t.end()
 })
@@ -261,7 +260,7 @@ test('nested charts: transition from a nested state to another nested state', t 
 test('nested charts: transition from a double-nested state to another double-nested state', t => {
   const c = {initial: {a1: true}, states: ['a1']}
   const cp = {initial: {c1: true}, states: ['c1'], where: {c1: c}}
-  const parent = Chart.create({
+  const p1 = Chart.create({
     states: ['c1', 'c2'],
     events: { TRANS: ['c1.c1.a1', 'c2.c1.a1'] },
     initial: {c1: {c1: {a1: true}}},
@@ -270,7 +269,7 @@ test('nested charts: transition from a double-nested state to another double-nes
       c2: cp
     }
   })
-  const p2 = parent.event('TRANS')
+  const p2 = p1.event('TRANS')
   t.deepEqual(p2.states, {c2: {c1: {a1: true}}})
   t.end()
 })
@@ -291,6 +290,7 @@ test('nested charts: transition into historical nested state', t => {
       }
     }
   })
+  t.deepEqual(p1.states, {a1: true}, 'initial states')
   const p2 = p1.event('PUSH')
   t.deepEqual(p2.states, {c1: {a1: true}}, 'initial push goes to nested initial states')
   const p3 = p2.event('c1.LOOP')
@@ -329,7 +329,7 @@ test('nested charts: loop back on the nested chart from any state to the initial
   const p1 = Chart.create({
     states: ['c1'],
     events: {
-      LOOP: ['c1', 'c1']
+      LOOP: ['c1', 'c1.initial']
     },
     initial: {c1: true},
     where: {
@@ -390,3 +390,6 @@ test('nested charts: exit from any state to a parent state', t => {
   t.deepEqual(p2.states, {a1: true})
   t.end()
 })
+
+// TODO
+// - try to deep transition on a non-nested chart
