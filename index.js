@@ -119,14 +119,19 @@ function event (eventName, chart) {
     }
     newChart.nested[chartName] = event(eventScope.slice(1).join('.'), nested)
     newChart.states[chartName] = newChart.nested[chartName].states
+    newChart.flatStates = flattenObj(newChart.states)
     return newChart
   }
   var sources = chart.eventPaths[eventName]
   var transitionCount = 0
   for (var state in chart.flatStates) {
+    var statePath = state.split('.')
     var dest = sources[state]
+    if (!dest && statePath.length > 1) {
+      dest = sources[statePath[0]]
+    }
     if (dest) {
-      transition(state.split('.'), dest, newChart)
+      transition(statePath, dest, newChart)
       transitionCount += 1
     }
   }
@@ -137,35 +142,50 @@ function event (eventName, chart) {
   return newChart
 }
 
+// TODO we don't want to mutate all these nested charts
+
 function transition (sourcePath, destPath, chart) {
   // Unset the source
+  var prev
   if (sourcePath) {
+    prev = chart.states[sourcePath[0]]
     delete chart.states[sourcePath[0]]
   }
   // Set the dest -- possibly recursive
   var nested = chart.nested[destPath[0]]
   if (destPath.length === 1) {
-    // Transition into nested initial state
     if (nested) {
-      nested.states = nested.initial
-      chart.states[destPath[0]] = nested.initial
-      return
+      // Transition into nested *initial* state
+      var newNested = Object.assign({states: nested.initial, flatStates: flattenObj(nested.initial)}, nested)
+      chart.nested[destPath[0]] = newNested
+      chart.states[destPath[0]] = newNested.initial
+    } else {
+      // Transition into a normal state
+      if (!(destPath[0] in chart.accessibleStates)) {
+        throw new Error('Cannot transition into inaccessible state: ' + destPath[0])
+      }
+      chart.states[destPath[0]] = true
     }
-    // Transition into a normal state
-    chart.states[destPath[0]] = true
-  } else { // gt 1 -- some kind of nested chart path
-    // Transitioning within the same nested chart
+  } else if (nested) { // gt 1 -- some kind of nested chart path
+    // Transition within the same nested chart
     if (sourcePath && sourcePath[0] === destPath[0]) {
-      transition(sourcePath.slice(1), destPath.slice(1), nested)
+      if (destPath[1] !== 'history') {
+        transition(sourcePath.slice(1), destPath.slice(1), nested)
+        chart.states[destPath[0]] = nested.states
+      } else {
+        chart.states[destPath[0]] = prev
+      }
+    } else {
+      if (destPath[1] !== 'history') {
+        // Transition into a specific state within a nested chart
+        transition(null, destPath.slice(1), nested)
+      }
       chart.states[destPath[0]] = nested.states
-      return
     }
-    // Transitioning into some new nested chart
-    if (nested) {
-      transition(null, destPath.slice(1), nested)
-      chart.states[destPath[0]] = nested.states
-    }
+  } else {
+    throw new Error('Invalid transition')
   }
+  chart.flatStates = flattenObj(chart.states)
 }
 
 module.exports = {
