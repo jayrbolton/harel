@@ -6,6 +6,12 @@ function create (opts) {
   }
   opts = defaults(opts)
   for (var i = 0; i < opts.states.length; ++i) {
+    if (opts.states[i] === 'initial') {
+      throw new Error('Cannot have a state called "initial" -- it is a reserved keyword')
+    }
+    if (opts.states[i] === 'history') {
+      throw new Error('Cannot have a state called "history" -- it is a reserved keyword')
+    }
     opts.accessibleStates[opts.states[i]] = false
   }
   setInitialStates(opts.initial, opts)
