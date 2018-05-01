@@ -61,6 +61,27 @@ test('it throws an error if an event transitions to a missing state', t => {
      ped: 'walk'
    }
 
+   const method = 'cash'
+   const step = 'method'
+
+   const stepChart = chart({NEXT: ['method', 'review']})
+   const methodChart = chart({SWITCH_CASH: ['check', 'cash'], SWITCH_CHECK: ['cash', 'check']})
+   const wholeChart = chart.compose(stepChart, {
+     method: [stepChart, 'cash']
+   })
+
+   const pedLight = chart({PED_TIMER: [['walk', 'wait'], ['wait', 'stop']]})
+   const carLight = chart({TIMER: [['green', 'yellow'], ['yellow', 'red'], ['red', 'green']]})
+   const light = chart.compose(carLight, 'green', {
+     red: [pedLight, 'walk']
+   })
+   light('green', 'TIMER')
+   light('yellow', 'TIMER')
+   light({red: 'walk'}, 'PED_TIMER')
+   light({red: 'wait'}, 'PED_TIMER')
+   light({red: 'stop'}, 'PED_TIMER')
+   light('red', 'TIMER')
+
    // A list of pairs
    // any value to any value -- objects can merge? special case? nah.
    chart = chart({
