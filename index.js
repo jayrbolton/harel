@@ -1,5 +1,8 @@
 var flattenObj = require('flat')
 
+// Options can include:
+// events: object of event names matched to state transitions {EV: ['s1', 's2']}
+
 function create (opts) {
   if (!opts.states || !Array.isArray(opts.states)) {
     throw new TypeError('Pass in a .states array')

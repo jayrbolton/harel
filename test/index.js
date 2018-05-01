@@ -39,14 +39,77 @@ test('it throws an error if an event transitions to a missing state', t => {
   t.end()
 })
 
-test('gives a new correct state on a transition event', t => {
-  const c1 = Chart.create({states: ['s1', 's2'], events: {EV: ['s1', 's2']}, initial: {s1: true}})
+/*
+ * Nested states
+ *
+ * const carLightStatus = 'green'
+ * const pedLightStatus = 'walk'
+ * const carChart = chart({
+     TIMER: [
+       ['green', 'yellow'],
+       ['yellow, 'red']
+     ]
+   })
+   const pedChart = chart('red', {
+     TIMER: [
+       ['walk', 'wait'],
+       ['wait', 'stop']
+     ]
+   })
+   const lights = {
+     car: 'green',
+     ped: 'walk'
+   }
 
-  t.assert(c1.states.s1)
-  t.notOk(c1.states.s2)
-  const c2 = c1.event('EV')
-  t.assert(c2.states.s2)
-  t.notOk(c2.states.s1)
+   // A list of pairs
+   // any value to any value -- objects can merge? special case? nah.
+   chart = chart({
+     TIMER: [
+       [ 
+         {car: 'green', ped: 'walk'},
+         {car: 'green', ped: 'wait'}
+       ],
+       [
+         {car: 'green', ped: 'wait'},
+         {car: 'yellow', ped: 'stop'}
+       ],
+       [
+         {car: 'yellow', ped: 'stop'},
+         {car: 'red', ped: 'stop'}
+       ],
+       [
+         {car: 'red', ped: 'stop'},
+         {car: 'green', ped: 'walk'}
+       ]
+     ]
+   })
+
+   {car: 'green', ped: 'walk'}
+   chart(lights, 'TIMER') // -> {car: 'green', ped: 'wait'}
+   chart(lights, 'TIMER') // -> {car: 'yellow', ped: 'stop'}
+   chart(lights, 'TIMER') // -> {car: 'red', ped: 'stop'}
+   chart(lights, 'TIMER') // -> {car: 'green', ped: 'walk'}
+
+   // Every second, change light
+   setTimeout(1000, () => {
+     carLightStatus = 
+       carChart(carLightStatus, 'TIMER')
+   })
+   carChart(carLightStatus, 'TIMER') // yellow
+   pedChart(carLightStatus, pedLightStatus, 'TIMER') // EXCEPTION
+   carChart(carLightStatus, 'TIMER') // red
+   pedChart(carLightStatus, pedLightStatus, 'TIMER') // 'wait'
+   pedChart(carLightStatus, pedLightStatus, 'TIMER') // 'stop'
+ */
+
+test('gives a new correct state on a transition event', t => {
+  const c1 = Chart.create({events: {EV: ['s1', 's2']}})
+  let state = 's1'
+
+  state = c1(state)
+  t.strictEqual(state, 's2')
+  state = c1(state)
+  t.strictEqual(state, 's1')
   t.end()
 })
 
