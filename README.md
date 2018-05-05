@@ -57,29 +57,23 @@ Chart({
 
 Capitalizing event names is just a convention and not required.
 
-The states themselves can be any value, such as strings, objects, typescript enums, etc.
+The states themselves can be any value, such as strings, objects, Typescript enums, etc.
 
-All state values are compared using `===` except for objects and arrays, which are JSON.stringified before being compared.
+An error is raised on any ambiguous transitions (ie. duplicate `transitionFrom` values for the same event).
 
 Returns a function with the signature:
 
 ### chart(state, event)
 
-`chart` is a function returned by `Chart` above. It returns a new state based on a starting state and event name.
+`chart` is a function returned by `Chart` above. This function returns a new state based on a starting state and event name.
 
 `state` can be any value in your transition pairs. If that state is not found or inactive, an error is immediately raised.
 
-`event` can be any event name key in your chart. If they event is not found or is not accessible from the given state, an error is immediately raised.
+`event` can be any event name key in your chart. If the event is not found or is not accessible from the given state, an error is immediately raised.
 
-### Howtos
+### Chart.compose(options)
 
-TODO 
-
-* Parallel states
-* Nested states
-* Event emitter
-* Guards
-* FRP
+This allows you to create a single chart from multiple
 
 ## Install
 

@@ -1,505 +1,83 @@
 const test = require('tape')
 const Chart = require('..')
 
-test('it throws errors on ambiguous state transitions', t => {
-  const ambig = { states: ['s1', 's2'], events: {AMBIG: [['s1', 's2'], ['s1', 's1']]}, initial: {s1: true} }
-  t.throws(() => Chart.create(ambig), 'throws ambiguity err')
-  t.throws(() => {
-    Chart.create({
-      states: 'c1',
-      initial: {c1: true},
-      where: { c1: { ambig } }
-    })
-  }, 'nested ambiguity')
-  t.end()
-})
+test('basic transitions', t => {
+  const c1 = Chart({EV: [['s1', 's2'], ['s2', 's1']]})
 
-test('it throws an error on an inaccessible state', t => {
-  const nope = { states: ['s1', 's2'], events: {NOPE: [['s1', 's1']]}, initial: {} }
-  t.throws(() => Chart.create(nope), 'throws inaccessibility err')
-  t.ok(() => {
-    Chart.create({ states: ['s1', 's2'], events: {NOPE: [['s1', 's2']]}, initial: {} })
-  }, 'ok when a state is only a dest')
-  t.throws(() => {
-    Chart.create({
-      states: ['c1'],
-      initial: {c1: true},
-      where: { c1: nope }
-    })
-  }, 'nested inaccessible')
-  t.end()
-})
-
-test('it throws an error if an event transitions to a missing state', t => {
-  const missing = { states: ['s1'], events: {NOPE: ['s1', 's2']}, initial: {} }
-  t.throws(() => Chart.create(missing), 'throws inaccessibility err')
-  t.throws(() => {
-    Chart.create({ states: ['c1'], where: {c1: missing} })
-  }, 'throws inaccessibility err')
-  t.end()
-})
-
-/*
- * Nested states
- *
- * const carLightStatus = 'green'
- * const pedLightStatus = 'walk'
- * const carChart = chart({
-     TIMER: [
-       ['green', 'yellow'],
-       ['yellow, 'red']
-     ]
-   })
-   const pedChart = chart('red', {
-     TIMER: [
-       ['walk', 'wait'],
-       ['wait', 'stop']
-     ]
-   })
-   const lights = {
-     car: 'green',
-     ped: 'walk'
-   }
-
-   const method = 'cash'
-   const step = 'method'
-
-   const stepChart = chart({NEXT: ['method', 'review']})
-   const methodChart = chart({SWITCH_CASH: ['check', 'cash'], SWITCH_CHECK: ['cash', 'check']})
-   const wholeChart = chart.compose(stepChart, {
-     method: [stepChart, 'cash']
-   })
-
-   const pedLight = chart({PED_TIMER: [['walk', 'wait'], ['wait', 'stop']]})
-   const carLight = chart({TIMER: [['green', 'yellow'], ['yellow', 'red'], ['red', 'green']]})
-   const light = chart.compose(carLight, 'green', {
-     red: [pedLight, 'walk']
-   })
-   light('green', 'TIMER')
-   light('yellow', 'TIMER')
-   light({red: 'walk'}, 'PED_TIMER')
-   light({red: 'wait'}, 'PED_TIMER')
-   light({red: 'stop'}, 'PED_TIMER')
-   light('red', 'TIMER')
-
-   // A list of pairs
-   // any value to any value -- objects can merge? special case? nah.
-   chart = chart({
-     TIMER: [
-       [ 
-         {car: 'green', ped: 'walk'},
-         {car: 'green', ped: 'wait'}
-       ],
-       [
-         {car: 'green', ped: 'wait'},
-         {car: 'yellow', ped: 'stop'}
-       ],
-       [
-         {car: 'yellow', ped: 'stop'},
-         {car: 'red', ped: 'stop'}
-       ],
-       [
-         {car: 'red', ped: 'stop'},
-         {car: 'green', ped: 'walk'}
-       ]
-     ]
-   })
-
-   {car: 'green', ped: 'walk'}
-   chart(lights, 'TIMER') // -> {car: 'green', ped: 'wait'}
-   chart(lights, 'TIMER') // -> {car: 'yellow', ped: 'stop'}
-   chart(lights, 'TIMER') // -> {car: 'red', ped: 'stop'}
-   chart(lights, 'TIMER') // -> {car: 'green', ped: 'walk'}
-
-   // Every second, change light
-   setTimeout(1000, () => {
-     carLightStatus = 
-       carChart(carLightStatus, 'TIMER')
-   })
-   carChart(carLightStatus, 'TIMER') // yellow
-   pedChart(carLightStatus, pedLightStatus, 'TIMER') // EXCEPTION
-   carChart(carLightStatus, 'TIMER') // red
-   pedChart(carLightStatus, pedLightStatus, 'TIMER') // 'wait'
-   pedChart(carLightStatus, pedLightStatus, 'TIMER') // 'stop'
- */
-
-test('gives a new correct state on a transition event', t => {
-  const c1 = Chart.create({events: {EV: ['s1', 's2']}})
   let state = 's1'
-
-  state = c1(state)
+  state = c1(state, 'EV')
   t.strictEqual(state, 's2')
-  state = c1(state)
+  state = c1(state, 'EV')
   t.strictEqual(state, 's1')
   t.end()
 })
 
-test('transitions correctly on loops', t => {
-  const c1 = Chart.create({states: ['s1'], events: {EV: ['s1', 's1']}, initial: {s1: true}})
-  t.assert(c1.states.s1)
-  const c2 = Chart.event('EV', c1)
-  t.assert(c2.states.s1)
+test('basic loop', t => {
+  const chart = Chart({EV: ['s1', 's1']})
+  let state = 's1'
+  state = chart(state, 'EV')
+  t.strictEqual(state, 's1')
   t.end()
 })
 
-test('it throws an error when transition on a valid event that is inaccessible', t => {
-  const c1 = Chart.create({states: ['s1', 's2'], events: {LOOP: ['s1', 's1'], MOVE: ['s1', 's2']}, initial: {s2: true}})
-  t.throws(() => Chart.event('LOOP', c1))
-  t.ok(() => Chart.event('MOVE', c1))
+test('it throws an error on a non-existent event', t => {
+  const chart = Chart({EV: ['s1', 's1']})
+  let state = 's1'
+  t.throws(() => chart(state, 'EVX'))
   t.end()
 })
 
-test('nested charts: transition to an initial state', t => {
-  const p1 = Chart.create({
-    states: ['s1', 'c1'],
-    events: { PUSH: ['s1', 'c1.initial'] },
-    initial: {s1: true},
-    where: {
-      c1: {
-        initial: {a1: true, b1: true},
-        states: ['a1', 'b1']
-      }
-    }
-  })
-  const p2 = p1.event('PUSH')
-  t.deepEqual(p2.states, {c1: {a1: true, b1: true}})
+test('it throws an error on an invalid state for event', t => {
+  const chart = Chart({EV: ['s1', 's1']})
+  let state = 'sx'
+  t.throws(() => chart(state, 'EV'))
   t.end()
 })
 
-test('nested charts: transition to a specific state', t => {
-  const parent = Chart.create({
-    states: ['s1', 'c1'],
-    events: { PUSH: ['s1', 'c1.b1'] },
-    initial: {s1: true},
-    where: {
-      c1: {
-        initial: {a1: true},
-        states: ['a1', 'b1']
-      }
-    }
-  })
-  const p2 = parent.event('PUSH')
-  t.deepEqual(p2.states, {c1: {a1: true, b1: true}})
-  t.end()
-})
-
-test('nested charts: throw err on inaccessible state', t => {
+test('it throws errors on ambiguous state transitions', t => {
   t.throws(() => {
-    Chart.create({
-      states: ['s1', 'c1'],
-      events: { PUSH: ['s1', 'c1.b1'] },
-      initial: {s1: true},
-      where: {
-        c1: {
-          initial: {a1: true},
-          states: ['a1', 'b1', 'd1']
-        }
-      }
-    })
+    Chart({EV: [['s1', 's2'], ['s1', 's3']]})
   })
   t.end()
 })
 
-test('nested charts: throw err on inaccessible nested chart', t => {
-  t.throws(() => {
-    Chart.create({
-      states: ['s1', 's2'],
-      events: {LOOP: ['s1', 's1']},
-      initial: {s1: true},
-      where: {
-        s2: {
-          initial: {a1: true},
-          states: ['a1']
-        }
-      }
-    })
-  })
+test('nested emulation', t => {
+  // ATM example
+  const atm = {
+    method: Chart({SWITCH: [['check', 'cash'], ['cash', 'check']]}),
+    step: Chart({NEXT: ['method', 'pay'], PREV: ['pay', 'method']})
+  }
+  let method = 'cash'
+  let step = 'method'
+  method = atm.method(method, 'SWITCH')
+  step = atm.step(step, 'NEXT')
+  step = atm.step(step, 'PREV')
+  t.strictEqual(method, 'check')
+  t.strictEqual(step, 'method')
   t.end()
 })
 
-test('nested charts: transition within the same nested chart from the parent', t => {
-  const p1 = Chart.create({
-    states: ['c1'],
-    events: { LOOP: [['c1.a1', 'c1.b1'], ['c1.b1', 'c1.a1']] },
-    initial: {c1: {a1: true}},
-    where: {
-      c1: {
-        initial: {a1: true},
-        states: ['a1', 'b1']
-      }
-    }
-  })
-  t.deepEqual(p1.states, {c1: {a1: true}})
-  const p2 = p1.event('LOOP')
-  t.deepEqual(p2.states, {c1: {b1: true}})
-  const p3 = p2.event('LOOP')
-  t.deepEqual(p3.states, {c1: {a1: true}})
-  t.end()
-})
-
-test('nested charts: transition within the same nested chart from a nested event', t => {
-  const p1 = Chart.create({
-    states: ['c1'],
-    initial: {c1: {a1: true}},
-    where: {
-      c1: {
-        initial: {a1: true},
-        events: {'LOOP': [['a1', 'b1'], ['b1', 'a1']]},
-        states: ['a1', 'b1']
-      }
-    }
-  })
-  t.deepEqual(p1.states, {c1: {a1: true}})
-  const p2 = p1.event('c1.LOOP')
-  t.deepEqual(p2.states, {c1: {b1: true}})
-  const p3 = p2.event('c1.LOOP')
-  t.deepEqual(p3.states, {c1: {a1: true}})
-  t.end()
-})
-
-test('nested charts: initially setting a nested chart to true automatically initializes nested state', t => {
-  const p1 = Chart.create({
-    states: ['c1'],
-    initial: {c1: true},
-    where: {
-      c1: {
-        states: ['a1'],
-        initial: {a1: true}
-      }
-    }
-  })
-  t.deepEqual(p1.states, {c1: {a1: true}})
-  t.end()
-})
-
-test("nested charts: initially setting a nested chart sets the nested chart's state", t => {
-  const p1 = Chart.create({
-    states: ['c1'],
-    initial: {c1: {c2: {b1: true, c3: true}}},
-    where: {
-      c1: {
-        initial: {a1: true},
-        states: ['a1', 'c2'],
-        where: {
-          c2: {
-            initial: {a1: true},
-            states: ['a1', 'b1', 'c3'],
-            where: {
-              c3: {
-                initial: {a1: true},
-                states: ['a1']
-              }
-            }
-          }
-        }
-      }
-    }
-  })
-  t.deepEqual(p1.states, {c1: {a1: true, c2: {a1: true, b1: true, c3: {a1: true}}}})
-  t.deepEqual(p1.nested.c1.states, {a1: true, c2: {a1: true, b1: true, c3: {a1: true}}})
-  t.deepEqual(p1.nested.c1.nested.c2.states, {a1: true, b1: true, c3: {a1: true}})
-  t.deepEqual(p1.nested.c1.nested.c2.nested.c3.states, {a1: true})
-  t.end()
-})
-
-test("nested charts: transition to a double-nested chart's initial state", t => {
-  const parent = Chart.create({
-    states: ['s1', 'c1'],
-    events: { PUSH: ['s1', 'c1.c2.initial'] },
-    initial: {s1: true},
-    where: {
-      c1: {
-        initial: {a1: true},
-        states: ['a1', 'c2'],
-        where: {
-          c2: {
-            initial: {g1: true},
-            states: ['g1']
-          }
-        }
-      }
-    }
-  })
-  const p2 = parent.event('PUSH')
-  t.deepEqual(p2.states, {c1: {a1: true, c2: {g1: true}}})
-  t.end()
-})
-
-test("nested charts: transition to a double-nested chart's specific state", t => {
-  const parent = Chart.create({
-    states: ['s1', 'c1'],
-    events: { PUSH: ['s1', 'c1.c2.h1'] },
-    initial: {s1: true},
-    where: {
-      c1: {
-        initial: {a1: true},
-        states: ['a1', 'c2'],
-        where: {
-          c2: {
-            initial: {g1: true},
-            states: ['g1', 'h1']
-          }
-        }
-      }
-    }
-  })
-  const p2 = parent.event('PUSH')
-  t.deepEqual(p2.states, {c1: {a1: true, c2: {g1: true, h1: true}}})
-  t.end()
-})
-
-test('nested charts: transition from a nested state to another nested state', t => {
-  const p1 = Chart.create({
-    states: ['c1', 'c2'],
-    events: { TRANS: ['c1.a1', 'c2.a1'] },
-    initial: {c1: {a1: true}},
-    where: {
-      c1: {
-        initial: {a1: true},
-        states: ['a1']
-      },
-      c2: {
-        initial: {a1: true},
-        states: ['a1']
-      }
-    }
-  })
-  t.deepEqual(p1.states, {c1: {a1: true}})
-  const p2 = p1.event('TRANS')
-  t.deepEqual(p2.states, {c2: {a1: true}})
-  t.end()
-})
-
-test('nested charts: transition from a double-nested state to another double-nested state', t => {
-  const c = {initial: {a1: true}, states: ['a1']}
-  const cp = {initial: {c1: true}, states: ['c1'], where: {c1: c}}
-  const p1 = Chart.create({
-    states: ['c1', 'c2'],
-    events: { TRANS: ['c1.c1.a1', 'c2.c1.a1'] },
-    initial: {c1: {c1: {a1: true}}},
-    where: {
-      c1: cp,
-      c2: cp
-    }
-  })
-  const p2 = p1.event('TRANS')
-  t.deepEqual(p2.states, {c2: {c1: {a1: true}}})
-  t.end()
-})
-
-test('nested charts: transition into historical nested state', t => {
-  const p1 = Chart.create({
-    states: ['a1', 'c1'],
-    events: {
-      PUSH: ['a1', 'c1.history'],
-      POP: [['c1.b1', 'a1'], ['c1.a1', 'a1']]
+/* const cc = parallel([c1, c2])
+ * const cc = nest(step, {method: method})
+ *
+ * parallel function
+ * nesting function
+ *
+  const c = Chart.compose({
+    method: {
+      chart: method,
+      nested: {step: 'method'}
     },
-    initial: {a1: true},
-    where: {
-      c1: {
-        initial: {a1: true},
-        states: ['a1', 'b1'],
-        events: {LOOP: [['a1', 'b1'], ['b1', 'a1']]}
-      }
+    step: {
+      chart: step
     }
   })
-  t.deepEqual(p1.states, {a1: true}, 'initial states')
-  const p2 = p1.event('PUSH')
-  t.deepEqual(p2.states, {c1: {a1: true}}, 'initial push goes to nested initial states')
-  const p3 = p2.event('c1.LOOP')
-  t.deepEqual(p3.states, {c1: {b1: true}})
-  const p4 = p3.event('POP')
-  t.deepEqual(p4.states, {a1: true})
-  const p5 = p4.event('PUSH')
-  t.deepEqual(p5.states, {c1: {b1: true}})
-  t.end()
-})
 
-test('nested charts: loop back on the nested chart from any state to the history (just a no-op)', t => {
-  const p1 = Chart.create({
-    states: ['c1'],
-    events: {
-      LOOP: ['c1', 'c1.history']
-    },
-    initial: {c1: true},
-    where: {
-      c1: {
-        initial: {a1: true},
-        states: ['a1', 'b1'],
-        events: {LOOP: [['a1', 'b1'], ['b1', 'a1']]}
-      }
-    }
-  })
-  t.deepEqual(p1.states, {c1: {a1: true}}, 'initial push goes to nested initial states')
-  const p2 = p1.event('LOOP')
-  t.deepEqual(p2.states, {c1: {a1: true}})
-  const p3 = p2.event('c1.LOOP').event('LOOP')
-  t.deepEqual(p3.states, {c1: {b1: true}})
-  t.end()
-})
-
-test('nested charts: loop back on the nested chart from any state to the initial', t => {
-  const p1 = Chart.create({
-    states: ['c1'],
-    events: {
-      LOOP: ['c1', 'c1.initial']
-    },
-    initial: {c1: true},
-    where: {
-      c1: {
-        initial: {a1: true},
-        states: ['a1', 'b1'],
-        events: {LOOP: [['a1', 'b1'], ['b1', 'a1']]}
-      }
-    }
-  })
-  t.deepEqual(p1.states, {c1: {a1: true}}, 'initial push goes to nested initial states')
-  const p2 = p1.event('LOOP')
-  t.deepEqual(p2.states, {c1: {a1: true}})
-  const p3 = p2.event('c1.LOOP').event('LOOP')
-  t.deepEqual(p3.states, {c1: {a1: true}})
-  t.end()
-})
-
-test('nested charts: exit from a specific state to a parent state', t => {
-  const p1 = Chart.create({
-    states: ['a1', 'c1'],
-    events: {
-      EXIT: ['c1.a1', 'a1']
-    },
-    initial: {c1: true},
-    where: {
-      c1: {
-        initial: {a1: true},
-        states: ['a1', 'b1'],
-        events: {E: ['a1', 'b1']}
-      }
-    }
-  })
-  t.deepEqual(p1.states, {c1: {a1: true}}, 'initial push goes to nested initial states')
-  const p2 = p1.event('EXIT')
-  t.deepEqual(p2.states, {a1: true})
-  t.throws(() => p1.event('c1.E').event('EXIT'))
-  t.end()
-})
-
-test('nested charts: exit from any state to a parent state', t => {
-  const p1 = Chart.create({
-    states: ['a1', 'c1'],
-    events: {
-      EXIT: ['c1', 'a1']
-    },
-    initial: {c1: true},
-    where: {
-      c1: {
-        initial: {a1: true},
-        states: ['a1', 'b1'],
-        events: {E: ['a1', 'b1']}
-      }
-    }
-  })
-  t.deepEqual(p1.states, {c1: {a1: true}}, 'initial push goes to nested initial states')
-  const p2 = p1.event('c1.E').event('EXIT')
-  t.deepEqual(p2.states, {a1: true})
-  t.end()
-})
+  let s = {method: 'cash', step: 'method'}
+  s = c(s, 'SWITCH') // {method: 'check', step: 'method'}
+  s = c(s, 'NEXT') // {method: 'check', step: 'pay'}
+  s = c(s, 'SWITCH') // invalid -- method is inactive
+  s = c(s, 'PREV') // {method: 'check', step: 'method'}
+  s = c(s, 'SWITCH') // {method: 'cash', step: 'method'}
+  s = c(s, 'SWITCH') // {method: 'cash', step: 'pay'}
+*/
