@@ -41,43 +41,19 @@ test('it throws errors on ambiguous state transitions', t => {
   t.end()
 })
 
-test('nested emulation', t => {
+test('nested chart', t => {
   // ATM example
-  const atm = {
-    method: Chart({SWITCH: [['check', 'cash'], ['cash', 'check']]}),
-    step: Chart({NEXT: ['method', 'pay'], PREV: ['pay', 'method']})
-  }
-  let method = 'cash'
-  let step = 'method'
-  method = atm.method(method, 'SWITCH')
-  step = atm.step(step, 'NEXT')
-  step = atm.step(step, 'PREV')
-  t.strictEqual(method, 'check')
-  t.strictEqual(step, 'method')
+  const method = Chart({SWITCH: [['check', 'cash'], ['cash', 'check']]})
+  const step = Chart({NEXT: ['method', 'pay'], PREV: ['pay', 'method']})
+  let payment = Chart.nested(step, {
+    method: {method: method}
+  })
+  let S = {root: 'method', method: 'cash'}
+  S = payment(S, 'SWITCH')
+  t.deepEqual(S, {root: 'method', method: 'check'})
+  S = payment(S, 'NEXT')
+  t.deepEqual(S, {root: 'pay', method: 'check'})
+  // Cannot switch method from the "pay" step
+  t.throws(() => payment(S, 'SWITCH'))
   t.end()
 })
-
-/* const cc = parallel([c1, c2])
- * const cc = nest(step, {method: method})
- *
- * parallel function
- * nesting function
- *
-  const c = Chart.compose({
-    method: {
-      chart: method,
-      nested: {step: 'method'}
-    },
-    step: {
-      chart: step
-    }
-  })
-
-  let s = {method: 'cash', step: 'method'}
-  s = c(s, 'SWITCH') // {method: 'check', step: 'method'}
-  s = c(s, 'NEXT') // {method: 'check', step: 'pay'}
-  s = c(s, 'SWITCH') // invalid -- method is inactive
-  s = c(s, 'PREV') // {method: 'check', step: 'method'}
-  s = c(s, 'SWITCH') // {method: 'cash', step: 'method'}
-  s = c(s, 'SWITCH') // {method: 'cash', step: 'pay'}
-*/

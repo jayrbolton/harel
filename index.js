@@ -43,15 +43,12 @@ function transition (eventPaths) {
   }
 }
 
-/*
-TODO
-what about:
-transitioning into a specific nested state
-transitioning from one nested state to another
-exiting from specific states
-function parallel (charts) {
+create.nested = function nested (chart, nested) {
+  const resultChart = create({})
+  return resultChart
 }
 
-function nest (parent, children) {
+create.parallel = function parallel (charts) {
+  const chart = create({})
+  return chart
 }
-*/
